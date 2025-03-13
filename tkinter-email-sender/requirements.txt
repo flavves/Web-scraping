@@ -1,0 +1,8 @@
+pandas
+openpyxl
+tkinter
+smtplib
+email
+random
+os
+time
