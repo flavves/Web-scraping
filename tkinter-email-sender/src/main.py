@@ -18,10 +18,11 @@ class MainApp:
         
         self.load_config()
         
-        self.ui = AppUI(self.root, self.smtp_server, self.smtp_port, self.email_address, self.email_password)
+        #self.ui = AppUI(self.root, self.smtp_server, self.smtp_port, self.email_address, self.email_password)
+        self.ui = AppUI(self.root)
         self.ui.save_button.config(command=self.save_config)
-        self.ui.select_excel_button.config(command=self.select_excel_file)
-        self.ui.select_images_button.config(command=self.select_image_files)
+        self.ui.excel_button.config(command=self.select_excel_file)
+        self.ui.image_button.config(command=self.select_image_files)
         self.ui.send_email_button.config(command=self.send_bulk_emails)
 
     def load_config(self):
@@ -52,6 +53,7 @@ class MainApp:
         messagebox.showinfo("Info", "Configuration saved successfully!")
 
     def select_excel_file(self):
+        print("excell seçiliyor")
         excel_file = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
         if excel_file:
             self.ui.excel_path.set(excel_file)

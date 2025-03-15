@@ -1,4 +1,4 @@
-from tkinter import Tk, Label, Entry, Button, filedialog, messagebox
+from tkinter import Tk, Label, Entry, Button, filedialog, messagebox, StringVar,Canvas
 import json
 import os
 
@@ -6,6 +6,8 @@ class AppUI:
     def __init__(self, master):
         self.master = master
         master.title("Email Sender Configuration")
+
+        
 
         self.smtp_server_label = Label(master, text="SMTP Server:")
         self.smtp_server_label.grid(row=0, column=0)
@@ -39,8 +41,20 @@ class AppUI:
         self.image_button = Button(master, text="Select Image Files", command=self.select_image_files)
         self.image_button.grid(row=5, column=1)
 
+        self.send_email_button = Button(master, text="Send Email", command=None)  # command sonradan atanacak
+        self.send_email_button.grid(row=6, column=0, columnspan=2)
+
         self.excel_file_path = ""
         self.image_file_paths = []
+
+        self.smtp_entry = self.smtp_server_entry
+        self.port_entry = self.smtp_port_entry
+        self.email_entry = self.email_entry
+        self.password_entry = self.password_entry
+        
+        self.excel_path = StringVar()
+        self.image_paths = StringVar()
+
 
     def load_settings(self):
         if os.path.exists('config.json'):
@@ -70,9 +84,14 @@ class AppUI:
         messagebox.showinfo("Info", "Settings saved successfully.")
 
     def select_excel_file(self):
+        print("excell seciliyor.")
         self.excel_file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
         if self.excel_file_path:
+            print("excell secildi.")
             messagebox.showinfo("Info", f"Selected Excel file: {self.excel_file_path}")
+        """            self.excel_button.config(bg="green")
+        else:
+            self.excel_button.config(bg="SystemButtonFace")"""
 
     def select_image_files(self):
         self.image_file_paths = filedialog.askopenfilenames(filetypes=[("Image files", "*.jpg")])
