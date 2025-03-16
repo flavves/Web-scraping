@@ -8,6 +8,12 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email.mime.image import MIMEImage
 from email import encoders
+import logging
+from dotenv import load_dotenv
+import json
+load_dotenv()
+# Loglama ayarları
+logging.basicConfig(filename='email_sender.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class EmailSender:
     def __init__(self, smtp_server, smtp_port, email_address, email_password):
@@ -17,7 +23,14 @@ class EmailSender:
         self.email_password = email_password
 
     def read_excel(self, file_path):
-        return pd.read_excel(file_path)
+        try:
+            return pd.read_excel(file_path)
+        except FileNotFoundError:
+            logging.error(f"Dosya bulunamadı: {file_path}")
+            return None
+        except Exception as e:
+            logging.error(f"Excel okuma hatası: {e}")
+            return None
 
     def send_email(self, to_email, subject, body, attachments=[], image_paths=[]):
         try:
@@ -48,51 +61,63 @@ class EmailSender:
             server.sendmail(self.email_address, to_email, msg.as_string())
             server.quit()
 
-            print(f"E-posta gönderildi: {to_email}")
+            logging.info(f"E-posta gönderildi: {to_email}")
+        except smtplib.SMTPAuthenticationError:
+            logging.error("SMTP kimlik doğrulama hatası. Şifrenizi kontrol edin.")
         except Exception as e:
-            print(f"Hata: {e}")
+            logging.error(f"E-posta gönderme hatası: {e}")
 
     def send_bulk_emails(self, excel_file, subject_template, body_template, attachments=[], image_paths=[]):
+        logging.info("Toplu mail gönderme başladı.")
         data = self.read_excel(excel_file)
+        if data is None:
+            return
+
         for index, row in data.iterrows():
-            to_email = row['Email']
-            company_name = row['Company']
-            
+            to_email = row['Mail']
+            company_name = row['Şirket']
+            logging.info(f"Gönderilecek e-posta: {to_email}, Şirket: {company_name}")
+
             subject = subject_template.replace("{company}", company_name)
             body = body_template.replace("{company}", company_name)
-            
+            logging.debug(f"Konu: {subject}, Gövde: {body}, Ekler: {attachments}")
+
             self.send_email(to_email, subject, body, attachments, image_paths)
-            
-            delay = random.randint(180, 300)  # 3-5 dakika rastgele bekleme
-            print(f"Bekleniyor: {delay} saniye...\n")
+            logging.info("Mail gönderildi.")
+
+            delay = random.randint(180, 300)
+            logging.info(f"Bekleniyor: {delay} saniye...")
             time.sleep(delay)
 
-'''
 # Kullanım Örneği
-smtp_server = "smtp.gmail.com"
-smtp_port = 587
-email_address = "your_email@gmail.com"
-email_password = "your_password"
+# Load configuration from config.json
+with open('config.json', 'r') as config_file:
+    config = json.load(config_file)
+
+smtp_server = config["smtp_server"]
+smtp_port = config["smtp_port"]
+email_address = config["email_address"]
+email_password = config["email_password"]
 
 email_sender = EmailSender(smtp_server, smtp_port, email_address, email_password)
 
-excel_path = "emails.xlsx"  # E-posta adreslerinin bulunduğu Excel dosyası
+excel_path = "D:/yazilim/yeni/bionluk/webScraping/Web-scraping/files/Emails.xlsx"
 subject_template = "Merhaba {company}, Özel Teklifimiz Var!"
 body_template = """
 <html>
-  <body>
-    <p>Sayın {company} Yetkilisi,</p>
-    <p>Size özel teklifimizi ekte bulabilirsiniz.</p>
-    {images}
-  </body>
+    <body>
+        <p>Sayın {company} Yetkilisi,</p>
+        <p>Size özel teklifimizi ekte bulabilirsiniz.</p>
+        {images}
+    </body>
 </html>
 """
-attachments = ["brochure1.pdf", "brochure2.pdf"]
-image_paths = ["offer_image1.jpg", "offer_image2.jpg"]  # E-posta içeriğine eklenecek görseller
+attachments = ["D:/yazilim/yeni/bionluk/webScraping/Web-scraping/files/exPdf/py copy.pdf",
+               "D:/yazilim/yeni/bionluk/webScraping/Web-scraping/files/exPdf/py.pdf"]
+image_paths = ["D:/yazilim/yeni/bionluk/webScraping/Web-scraping/files/exPdf/fognoise.jpg",
+               "D:/yazilim/yeni/bionluk/webScraping/Web-scraping/files/exPdf/AspectRatio.jpg"]
 
-# Generate image HTML tags
 image_html = ''.join([f'<img src="cid:{os.path.basename(image)}">' for image in image_paths])
 body_template = body_template.replace("{images}", image_html)
 
 email_sender.send_bulk_emails(excel_path, subject_template, body_template, attachments, image_paths)
-'''
