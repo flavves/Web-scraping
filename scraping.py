@@ -187,34 +187,84 @@ def start():
     selenium_tools.quit()
     print("Program sonlandı")
 
-### tkinter arayüzü 
-
-
-
-def on_submit():
-    name = entry_name.get()
-    age = entry_age.get()
-    messagebox.showinfo("Bilgi", f"Ad: {name}\nYaş: {age}")
-
 # Ana pencereyi oluştur
 root = tk.Tk()
-root.title("Basit Tkinter Arayüzü")
-root.geometry("300x200")
+root.title("SMTP Ayarları")
+root.geometry("400x300")
+
+# Giriş kutularını global olarak tanımla
+entry_smtp = tk.Entry(root)
+entry_port = tk.Entry(root)
+entry_mail = tk.Entry(root)
+entry_pass = tk.Entry(root, show="*")  # Şifre gizli
+entry_username = tk.Entry(root)
+entry_passUsername = tk.Entry(root, show="*")  # Şifre gizli
+
+def load_config():
+    """Konfigürasyonu JSON dosyasından yükler ve giriş kutularına ekler."""
+    config_path = os.path.join(base_path, 'config.json')
+    if os.path.exists(config_path):
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+            entry_smtp.delete(0, tk.END)
+            entry_smtp.insert(0, config.get('smtp_server', ''))
+
+            entry_port.delete(0, tk.END)
+            entry_port.insert(0, config.get('smtp_port', ''))
+
+            entry_mail.delete(0, tk.END)
+            entry_mail.insert(0, config.get('email_address', ''))
+
+            entry_pass.delete(0, tk.END)
+            entry_pass.insert(0, config.get('email_password', ''))
+
+            entry_username.delete(0, tk.END)
+            entry_username.insert(0, config.get('username', ''))
+
+            entry_passUsername.delete(0, tk.END)
+            entry_passUsername.insert(0, config.get('password', ''))
+    else:
+        print("config.json dosyası bulunamadı.")
+
+def save_config():
+    """Giriş kutularındaki verileri JSON dosyasına kaydeder."""
+    config = {
+        'smtp_server': entry_smtp.get(),
+        'smtp_port': entry_port.get(),
+        'email_address': entry_mail.get(),
+        'email_password': entry_pass.get(),
+        'username': entry_username.get(),
+        'password': entry_passUsername.get()
+    }
+    with open(base_path+'/config.json', 'w') as f:
+        json.dump(config, f, indent=4)
+    print("Ayarlar başarıyla kaydedildi.")
+
+def toggle_password_visibility():
+    """Şifreleri göster veya gizle"""
+    if show_password_var.get():
+        entry_pass.config(show="")  # Şifreleri göster
+        entry_passUsername.config(show="")
+    else:
+        entry_pass.config(show="*")  # Şifreleri gizle
+        entry_passUsername.config(show="*")
 
 # Etiketler ve Giriş Kutuları
-label_name = tk.Label(root, text="Adınızı Girin:")
-label_name.pack(pady=5)
-entry_name = tk.Entry(root)
-entry_name.pack(pady=5)
+labels = ["SMTP Server:", "SMTP Port:", "E-Mail:", "Şifre:", "Kullanıcı Adı:", "Şifre:"]
+entries = [entry_smtp, entry_port, entry_mail, entry_pass, entry_username, entry_passUsername]
 
-label_age = tk.Label(root, text="Yaşınızı Girin:")
-label_age.pack(pady=5)
-entry_age = tk.Entry(root)
-entry_age.pack(pady=5)
+for i, (label_text, entry) in enumerate(zip(labels, entries)):
+    tk.Label(root, text=label_text).grid(row=i, column=0, padx=10, pady=5, sticky="e")
+    entry.grid(row=i, column=1, padx=10, pady=5, sticky="w")
 
-# Gönder Butonu
-submit_button = tk.Button(root, text="Gönder", command=on_submit)
-submit_button.pack(pady=10)
+# Şifreleri Göster Checkbox
+show_password_var = tk.BooleanVar()
+show_password_checkbox = tk.Checkbutton(root, text="Şifreleri Göster", variable=show_password_var, command=toggle_password_visibility)
+show_password_checkbox.grid(row=6, column=0, columnspan=2, pady=5)
+
+# Butonlar
+tk.Button(root, text="Ayarları Kaydet", command=save_config).grid(row=7, column=0, columnspan=2, pady=5)
+tk.Button(root, text="Ayarları Yükle", command=load_config).grid(row=8, column=0, columnspan=2, pady=5)
 
 # Pencereyi çalıştır
 root.mainloop()
