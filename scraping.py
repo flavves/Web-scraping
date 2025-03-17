@@ -4,14 +4,23 @@ from dotenv import load_dotenv
 import os
 import time
 import pandas as pd
+import json
 # .env dosyasını yükle
 load_dotenv()
-
+base_path = os.path.dirname(os.path.abspath(__file__))
+print(f"Base Path: {base_path}")
 # .env dosyasından kullanıcı adı ve şifreyi al
-username = os.getenv("USERNAME")
-password = os.getenv("PASSWORD")
 
-csvReader = CsvReader("/Users/batuhanokmen/Documents/yazilim/bionluk/Apollo/Web-scraping/files/Companies.csv")
+with open('config.json', 'r') as config_file:
+    config = json.load(config_file)
+
+
+
+
+username = config["username"]
+password = config["password"]
+
+csvReader = CsvReader(base_path+"/files/Companies.csv")
 data = csvReader.read_csv()
 companies = csvReader.get_companies()
 companies= companies[0:10]
@@ -54,27 +63,28 @@ def click_company(company_name):
         selenium_tools.click_element_by_xpath('//*[@id="table-row-0"]/div[1]/div[2]')
     time.sleep(5)
 
-def saveToExcel(company, mails):
-    file_path = "/Users/batuhanokmen/Documents/yazilim/bionluk/Apollo/Web-scraping/files/Emails.xlsx"
-    
-    # Check if the file exists
-    if os.path.exists(file_path):
-        # Load existing data
-        df = pd.read_excel(file_path)
-    else:
-        # Create a new DataFrame if the file does not exist
-        df = pd.DataFrame(columns=["Şirket", "Mail"])
-    
-    # Append new data
-    new_data = pd.DataFrame([{"Şirket": company, "Mail": mail} for mail in mails])
-    df = pd.concat([df, new_data], ignore_index=True)
-    
-    # Save the DataFrame to Excel
-    df.to_excel(file_path, index=False)
+
+def saveToExcel(company, mails, names):
+        file_path = base_path+"/files/Emails.xlsx"
+        
+        # Check if the file exists
+        if os.path.exists(file_path):
+            # Load existing data
+            df = pd.read_excel(file_path)
+        else:
+            # Create a new DataFrame if the file does not exist
+            df = pd.DataFrame(columns=["Şirket", "Mail", "Çalışan Adı"])
+        
+        # Append new data
+        new_data = pd.DataFrame([{"Şirket": company, "Mail": mail, "Çalışan Adı": name} for mail, name in zip(mails, names)])
+        df = pd.concat([df, new_data], ignore_index=True)
+        
+        # Save the DataFrame to Excel
+        df.to_excel(file_path, index=False)
 
 
 
-def collect_mails(company,mails):
+def collect_mails(company,mails,names):
     for i in range(5):
         try:
             #bu sırayla erişim verilmemiş mail adreslerini açıyor. burada 5 tane açıksa hiç tıklama yapılsın ilerde
@@ -86,9 +96,25 @@ def collect_mails(company,mails):
             time.sleep(1)
             selenium_tools.click_element_by_xpath("//img[contains(@src, 'copy.svg')]")
             time.sleep(1)
-        except:pass
-    print("Collected Mails -> ",mails)
-    saveToExcel(company, mails)
+            try:
+                #get name
+                sonuclar=selenium_tools.get_network_logs()
+                for sonuc in sonuclar:
+                    try:
+                        if "contact_emails" in sonuc["contacts"][0] and sonuc["contacts"][0]["contact_emails"]:
+                            email_alt = sonuc["contacts"][0]["contact_emails"][0]["email"]
+                            name = sonuc["contacts"][0]["name"]
+                            names.append(name)
+                            print(email_alt,name)  # Çıktı: jani@janakiram.com
+                    except:
+                        pass
+            except:
+                names.append("")
+        except:
+            names.append("")
+
+    print("Collected Mails -> ",mails," Collected Names -> ",names)
+    saveToExcel(company, mails, names)
 
 
 def delete_before_searches():
@@ -108,7 +134,7 @@ if __name__ == "__main__":
     # Son kaldığı şirketi txt dosyasından oku
     last_company = None
     try:
-        with open("/Users/batuhanokmen/Documents/yazilim/bionluk/Apollo/Web-scraping/files/last_company.txt", "r") as file:
+        with open(base_path+"/files/last_company.txt", "r") as file:
             last_company = file.read().strip()
     except FileNotFoundError:
         pass
@@ -122,7 +148,7 @@ if __name__ == "__main__":
     counter = 0
     for company in companies[start_index:]:
         # Son kaldığı şirketi txt dosyasına kaydet
-        with open("/Users/batuhanokmen/Documents/yazilim/bionluk/Apollo/Web-scraping/files/last_company.txt", "w") as file:
+        with open(base_path+"/files/last_company.txt", "w") as file:
             file.write(company)
             print("Son kaldığı şirket kayıt tamamdır -> ", company)
         file.close()
@@ -143,8 +169,9 @@ if __name__ == "__main__":
         print("People tıklanıyor")
         click_people()
         mails=[]
+        names=[]
         print("Mail toplanıyor")
-        collect_mails(company,mails)
+        collect_mails(company,mails,names)
         mailsCounter+=len(mails)
         companyCounter+=1
         print("________________________________________________________")

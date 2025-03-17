@@ -9,11 +9,37 @@ from email.mime.base import MIMEBase
 from email.mime.image import MIMEImage
 from email import encoders
 import logging
+from logging.handlers import TimedRotatingFileHandler
 from dotenv import load_dotenv
 import json
 load_dotenv()
+
+base_path = os.path.dirname(os.path.abspath(__file__))
+print(f"Base Path: {base_path}")
 # Loglama ayarları
-logging.basicConfig(filename='email_sender.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+#logging.basicConfig(filename='email_sender.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Log dosyasının günlük olarak sıfırlanması
+log_handler = TimedRotatingFileHandler(
+    filename='email_sender.log',  # Log dosya adı
+    when='midnight',              # Her gece yarısı yenile
+    interval=1,                   # 1 gün aralıklarla
+    backupCount=0,                # Eski logları tutma, sadece en günceli olsun
+    encoding='utf-8'              # Türkçe karakter sorunlarını önlemek için
+)
+
+# Log formatını ayarla
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+log_handler.setFormatter(formatter)
+
+# Logger oluştur
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.addHandler(log_handler)
+
+
+
+
 
 class EmailSender:
     def __init__(self, smtp_server, smtp_port, email_address, email_password):
@@ -91,7 +117,7 @@ class EmailSender:
 
 # Kullanım Örneği
 # Load configuration from config.json
-with open('config.json', 'r') as config_file:
+with open(base_path+'/config.json', 'r') as config_file:
     config = json.load(config_file)
 
 smtp_server = config["smtp_server"]
@@ -101,8 +127,9 @@ email_password = config["email_password"]
 
 email_sender = EmailSender(smtp_server, smtp_port, email_address, email_password)
 
-excel_path = "D:/yazilim/yeni/bionluk/webScraping/Web-scraping/files/Emails.xlsx"
+excel_path = base_path+"/files/Emails.xlsx"
 subject_template = "Merhaba {company}, Özel Teklifimiz Var!"
+
 body_template = """
 <html>
     <body>
@@ -112,10 +139,12 @@ body_template = """
     </body>
 </html>
 """
-attachments = ["D:/yazilim/yeni/bionluk/webScraping/Web-scraping/files/exPdf/py copy.pdf",
-               "D:/yazilim/yeni/bionluk/webScraping/Web-scraping/files/exPdf/py.pdf"]
-image_paths = ["D:/yazilim/yeni/bionluk/webScraping/Web-scraping/files/exPdf/fognoise.jpg",
-               "D:/yazilim/yeni/bionluk/webScraping/Web-scraping/files/exPdf/AspectRatio.jpg"]
+
+attachments = [base_path+"/files/exPdf/py copy.pdf",
+               base_path+"/files/exPdf/py.pdf"]
+
+image_paths = [base_path+"/files/exPdf/fognoise.jpg",
+               base_path+"/files/exPdf/AspectRatio.jpg"]
 
 image_html = ''.join([f'<img src="cid:{os.path.basename(image)}">' for image in image_paths])
 body_template = body_template.replace("{images}", image_html)

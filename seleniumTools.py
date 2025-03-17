@@ -9,8 +9,30 @@ from selenium.webdriver.common.keys import Keys
 import time
 import json
 import pickle
+import logging
+from logging.handlers import TimedRotatingFileHandler
+
+
+# Log dosyasının günlük olarak sıfırlanması
+log_handler = TimedRotatingFileHandler(
+    filename='seleniumTools.log',  # Log dosya adı
+    when='midnight',              # Her gece yarısı yenile
+    interval=1,                   # 1 gün aralıklarla
+    backupCount=0,                # Eski logları tutma, sadece en günceli olsun
+    encoding='utf-8'              # Türkçe karakter sorunlarını önlemek için
+)
+
+# Log formatını ayarla
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+log_handler.setFormatter(formatter)
+
+# Logger oluştur
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.addHandler(log_handler)
+
 class SeleniumTools:
-    def __init__(self, headless=False, wait_time=60):
+    def __init__(self, headless=False, wait_time=10):
         chrome_options = Options()
         if headless:
             chrome_options.add_argument("--headless")
@@ -31,7 +53,7 @@ class SeleniumTools:
         logs = self.driver.get_log("performance")
         
         request_details = {}  # İstekleri requestId ile eşleştirmek için
-        
+        response_body_json= []
         for log in logs:
             try:
                 log_data = json.loads(log["message"])["message"]
@@ -51,10 +73,10 @@ class SeleniumTools:
                         "payload": post_data
                     }
 
-                    print(f"\n🔹 [Request] {method} {url}")
-                    print(f"   Headers: {json.dumps(headers, indent=2)}")
-                    if post_data:
-                        print(f"   Payload: {post_data}")
+                    #print(f"\n🔹 [Request] {method} {url}")
+                    #print(f"   Headers: {json.dumps(headers, indent=2)}")
+                    #if post_data:
+                    #    print(f"   Payload: {post_data}")
 
                 # Gelen Yanıtları (Response) Yakalama
                 if log_data["method"] == "Network.responseReceived":
@@ -63,9 +85,9 @@ class SeleniumTools:
                     status = log_data["params"]["response"]["status"]
                     headers = log_data["params"]["response"].get("headers", {})
 
-                    print(f"\n🔸 [Response] {url} - Status: {status}")
-                    print(f"   Headers: {json.dumps(headers, indent=2)}")
-
+                    #print(f"\n🔸 [Response] {url} - Status: {status}")
+                    #print(f"   Headers: {json.dumps(headers, indent=2)}")
+                    """
                     # Eğer istek detayları bulunursa, birlikte yazdıralım
                     if request_id in request_details:
                         req = request_details[request_id]
@@ -74,15 +96,18 @@ class SeleniumTools:
                         if req['payload']:
                             print(f"   Request Payload: {req['payload']}")
                         print(f"   Response Headers: {json.dumps(headers, indent=2)}")
-
+                    """
                     # RESPONSE BODY'Yİ ÇEKME (istek ID'si üzerinden)
                     response_body = self.get_response_body(request_id)
                     if response_body:
-                        print(f"   📥 Response Body: {json.dumps(response_body, indent=2)}")
+                        response_body_json.append(response_body)
+                        #print(f"   📥 Response Body: {json.dumps(response_body, indent=2)}")
 
             except Exception as e:
                 print(f"Error parsing network log: {e}")
 
+        return response_body_json
+    
     def get_response_body(self, request_id):
         """
         Belirtilen request_id için yanıt gövdesini alır.
@@ -100,7 +125,7 @@ class SeleniumTools:
                 return body  # Eğer JSON değilse, direkt string olarak döndür
 
         except Exception as e:
-            print(f"❌ Response body alınamadı: {e}")
+            #print(f"❌ Response body alınamadı: {e}")
             return None
 
     
