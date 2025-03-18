@@ -31,14 +31,21 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 logger.addHandler(log_handler)
 # DETAYLAR
+global selenium_tools,BOT_STATUS,BOT_DESCRIPTION,MAIL_TEMPLATE,EXCELL_PATH
 
 BOT_STATUS = "Pasif"
 BOT_DESCRIPTION = "Veri çekme işlemi başlatılmadı"
 EXCELL_PATH = ""
 MAIL_TEMPLATE = ""
 
-# DETAYLAR
 
+# Ana pencereyi oluştur
+root = tk.Tk()
+root.title("SMTP Ayarları")
+root.geometry("900x600")
+# DETAYLAR
+bot_status_var = tk.StringVar()
+bot_description_var = tk.StringVar()
 
 
 
@@ -49,7 +56,22 @@ print(f"Base Path: {base_path}")
 logger.info(f"Base Path: {base_path}")
 # .env dosyasından kullanıcı adı ve şifreyi al
 
-with open(base_path+'/config.json', 'r') as config_file:
+config_path = base_path + '/config.json'
+if not os.path.exists(config_path):
+    default_config = {
+        'smtp_server': '',
+        'smtp_port': '',
+        'email_address': '',
+        'email_password': '',
+        'username': '',
+        'password': ''
+    }
+    with open(config_path, 'w') as config_file:
+        json.dump(default_config, config_file, indent=4)
+        print("config.json dosyası oluşturuldu.")
+        logger.info("config.json dosyası oluşturuldu.")
+
+with open(config_path, 'r') as config_file:
     config = json.load(config_file)
 
 username = config["username"]
@@ -101,7 +123,10 @@ def click_company(company_name):
 
 
 def saveToExcel(company, mails, names):
-        file_path = base_path+"/files/Emails.xlsx"
+        global selenium_tools,BOT_STATUS,BOT_DESCRIPTION,MAIL_TEMPLATE,EXCELL_PATH
+
+        #file_path = base_path+"/files/Emails.xlsx"
+        file_path = EXCELL_PATH
         
         # Check if the file exists
         if os.path.exists(file_path):
@@ -162,7 +187,7 @@ def delete_before_searches():
         pass
     
 def start():
-    global selenium_tools,BOT_STATUS,BOT_DESCRIPTION
+    global selenium_tools,BOT_STATUS,BOT_DESCRIPTION,MAIL_TEMPLATE,EXCELL_PATH
     selenium_tools = SeleniumTools(headless=False)
     selenium_tools.open_url("https://app.apollo.io/#/login")  # Açmak istediğiniz web sayfasının URL'sini buraya yazın
     # Burada kullanıcı adı ve şifreyi kullanabilirsiniz
@@ -170,6 +195,8 @@ def start():
     print("Giriş yapıldı")
     logger.info("Giriş yapıldı")
     BOT_STATUS = "Aktif | Veri çekme işlemi başladı"
+    BOT_DESCRIPTION = "Veri çekme işlemi başladı"
+    update_status()
     mailsCounter=0
     companyCounter=0
     # Son kaldığı şirketi txt dosyasından oku
@@ -233,6 +260,7 @@ def start():
         print("Şirketlerin %",companyCounter/len(companies)*100,"'si tamamlandı")
         logger.info(f"Şirketlerin %{companyCounter/len(companies)*100}'si tamamlandı")
         BOT_DESCRIPTION= "Şirketlerin %"+str(companyCounter/len(companies)*100)+"'si tamamlandı"
+        update_status()
         
         print("________________________________________________________")      
         
@@ -245,6 +273,7 @@ def start():
 def stop():
     global BOT_STATUS
     BOT_STATUS = "Pasif | Veri çekme işlemi durduruldu"
+    update_status()
     print("Veri çekme işlemi durduruldu")
     logger.info("Veri çekme işlemi durduruldu")
 
@@ -252,6 +281,7 @@ def stop():
 def send_mail():
     global BOT_STATUS
     BOT_STATUS = "Aktif | Mail Gönderme işlemi başlatıldı"
+    update_status()
     print("Mail Gönderme işlemi başlatılıyor")
     logger.info("Mail Gönderme işlemi başlatılıyor")
 
@@ -259,9 +289,21 @@ def send_mail():
     logger.info("Mail Gönderme işlemi tamamlandı")
     BOT_STATUS = "Pasif | Mail Gönderme işlemi tamamlandı"
 
+def update_status():
+    global BOT_STATUS, BOT_DESCRIPTION
+
+    #print("Bot Durumu: ", BOT_STATUS)
+    #print("Son Durum: ", BOT_DESCRIPTION)
+
+    logger.info(f"Bot Durumu: {BOT_STATUS}")
+    logger.info(f"Son Durum: {BOT_DESCRIPTION}")
+
+    bot_status_var.set(BOT_STATUS)
+    bot_description_var.set(BOT_DESCRIPTION)
+
 
 def selectExcellPath():
-    global EXCELL_PATH,BOT_STATUS
+    global EXCELL_PATH,BOT_STATUS,BOT_DESCRIPTION
     file_path = filedialog.askopenfilename(
         title="Excel Dosyasını Seç",
         filetypes=[("Excel Dosyaları", "*.xlsx"), ("Tüm Dosyalar", "*.*")]
@@ -270,15 +312,22 @@ def selectExcellPath():
         print(f"Seçilen Excel Dosyası: {file_path}")
         logger.info(f"Seçilen Excel Dosyası: {file_path}")
         EXCELL_PATH = file_path
+        
+        BOT_STATUS = "Aktif | Excell Seçildi"
+        BOT_DESCRIPTION = "Excel Dosyası Seçildi"
+        update_status()
+        
     else:
         print("Hiçbir dosya seçilmedi.")
         logger.info("Hiçbir dosya seçilmedi.")
         BOT_STATUS = "Pasif | Excell Seçilmedi"
+        BOT_DESCRIPTION = "Excell Seçilmedi"
         EXCELL_PATH = ""
-    BOT_STATUS = "Aktif | Excell Seçildi"
+        update_status()
+    update_status()
 
 def MailTemplate():
-    global BOT_STATUS, MAIL_TEMPLATE
+    global BOT_STATUS, MAIL_TEMPLATE,BOT_DESCRIPTION
     file_path = filedialog.askopenfilename(
         title="Mail Şablon Dosyasını Seç",
         filetypes=[("Metin Dosyaları", "*.txt"), ("Tüm Dosyalar", "*.*")]
@@ -289,15 +338,16 @@ def MailTemplate():
         print("Mail Şablonu Yüklendi")
         logger.info("Mail Şablonu Yüklendi")
         BOT_STATUS = "Aktif | Mail Şablonu Yüklendi"
+        BOT_DESCRIPTION = "Mail Şablonu Yüklendi"
+        update_status()
     else:
         print("Hiçbir dosya seçilmedi.")
         logger.info("Hiçbir dosya seçilmedi.")
         BOT_STATUS = "Pasif | Mail Şablonu Seçilmedi"
+        BOT_DESCRIPTION = "Mail Şablonu Seçilmedi"
+        update_status()
 
-# Ana pencereyi oluştur
-root = tk.Tk()
-root.title("SMTP Ayarları")
-root.geometry("900x600")
+
 
 # Giriş kutularını global olarak tanımla
 entry_smtp = tk.Entry(root)
@@ -369,6 +419,8 @@ show_password_var = tk.BooleanVar()
 show_password_checkbox = tk.Checkbutton(root, text="Şifreleri Göster", variable=show_password_var, command=toggle_password_visibility)
 show_password_checkbox.grid(row=6, column=0, columnspan=2, pady=5)
 
+
+
 # Butonlar
 tk.Button(root, text="Ayarları Kaydet", command=save_config).grid(row=7, column=0, columnspan=1, pady=5)
 tk.Button(root, text="Ayarları Yükle", command=load_config).grid(row=7, column=1, columnspan=1, pady=5)
@@ -386,10 +438,10 @@ tk.Button(root, text="Başla", command=start).grid(row=11, column=0, columnspan=
 tk.Button(root, text="Durdur", command=root.quit).grid(row=11, column=1, columnspan=1, pady=5)
 
 tk.Label(root, text="Bot Durumu: ").grid(row=0, column=2, columnspan=10, pady=5)
-tk.Label(root, text=BOT_STATUS).grid(row=0, column=13, columnspan=10, pady=5)
+tk.Label(root, textvariable=bot_status_var).grid(row=0, column=13, columnspan=10, pady=5)
 
 tk.Label(root, text="Son Durum: ").grid(row=1, column=2, columnspan=10, pady=5)
-tk.Label(root, text=BOT_DESCRIPTION).grid(row=1, column=13, columnspan=10, pady=5)
+tk.Label(root, textvariable=bot_description_var).grid(row=1, column=13, columnspan=10, pady=5)
 
 # Pencereyi çalıştır
 root.mainloop()
