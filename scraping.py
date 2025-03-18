@@ -128,7 +128,8 @@ def saveToExcel(company, mails, names):
 
         #file_path = base_path+"/files/Emails.xlsx"
         file_path = EXCELL_PATH
-        
+        if(len(mails)==0):
+            return -1
         # Check if the file exists
         if os.path.exists(file_path):
             # Load existing data
@@ -143,6 +144,7 @@ def saveToExcel(company, mails, names):
         
         # Save the DataFrame to Excel
         df.to_excel(file_path, index=False)
+        return 1
 
 
 
@@ -178,7 +180,23 @@ def collect_mails(company,mails,names):
 
     print("Collected Mails -> ",mails," Collected Names -> ",names)
     logger.info(f"Collected Mails -> {mails}, Collected Names -> {names}")
-    saveToExcel(company, mails, names)
+    res=saveToExcel(company, mails, names)
+    try:
+        if res==-1:
+            print("Mail toplanamadı")
+            logger.info("Mail toplanamadı")
+            BOT_STATUS = "Pasif | Mail toplanamadı"
+            BOT_DESCRIPTION = "Mail toplanamadı"
+            update_status()
+            return -1
+        else:
+            print("Mail toplandı")
+            logger.info("Mail toplandı")
+            return 1
+    except:
+        print("Mail toplanamadı")
+        logger.info("Mail toplanamadı")
+        return -1
 
 
 def delete_before_searches():
@@ -257,7 +275,14 @@ def start():
         names=[]
         print("Mail toplanıyor")
         logger.info("Mail toplanıyor")
-        collect_mails(company,mails,names)
+        res=collect_mails(company,mails,names)
+        if res==-1:
+            logger.info("Mail toplanamadı program durduruldu kredi kontrol edilsin")
+            BOT_STATUS = "Pasif | Mail toplanamadı program durduruldu kredi kontrol edilsin"
+            BOT_DESCRIPTION = "Mail toplanamadı program durduruldu kredi kontrol edilsin"
+            update_status()
+            break
+
         mailsCounter+=len(mails)
         companyCounter+=1
         print("________________________________________________________")
