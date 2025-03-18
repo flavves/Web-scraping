@@ -1,5 +1,5 @@
 from SeleniumTools import SeleniumTools
-from CsvReader import CsvReader
+from FileReader import FileReader
 from dotenv import load_dotenv
 import os
 import time
@@ -8,10 +8,45 @@ import json
 import tkinter as tk
 from tkinter import messagebox
 
+import logging
+from logging.handlers import TimedRotatingFileHandler
+from tkinter import filedialog
+
+
+# Log dosyasının günlük olarak sıfırlanması
+log_handler = TimedRotatingFileHandler(
+    filename='scraping.log',  # Log dosya adı
+    when='midnight',              # Her gece yarısı yenile
+    interval=1,                   # 1 gün aralıklarla
+    backupCount=0,                # Eski logları tutma, sadece en günceli olsun
+    encoding='utf-8'              # Türkçe karakter sorunlarını önlemek için
+)
+
+# Log formatını ayarla
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+log_handler.setFormatter(formatter)
+
+# Logger oluştur
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.addHandler(log_handler)
+# DETAYLAR
+
+BOT_STATUS = "Pasif"
+BOT_DESCRIPTION = "Veri çekme işlemi başlatılmadı"
+EXCELL_PATH = ""
+MAIL_TEMPLATE = ""
+
+# DETAYLAR
+
+
+
+
 # .env dosyasını yükle
 load_dotenv()
 base_path = os.path.dirname(os.path.abspath(__file__))
 print(f"Base Path: {base_path}")
+logger.info(f"Base Path: {base_path}")
 # .env dosyasından kullanıcı adı ve şifreyi al
 
 with open(base_path+'/config.json', 'r') as config_file:
@@ -20,15 +55,16 @@ with open(base_path+'/config.json', 'r') as config_file:
 username = config["username"]
 password = config["password"]
 
-csvReader = CsvReader(base_path+"/files/Companies.csv")
-data = csvReader.read_csv()
+csvReader = FileReader(base_path+"/files/Companies.csv")
+data = csvReader.read_file()
 companies = csvReader.get_companies()
 #companies= companies[0:10]
 #print(companies)
-
+logger.info(f"Şirketler -> {companies}")
 
 def login():
     print(f"Kullanıcı Adı: {username}, Şifre: {password}")
+    logger.info(f"Kullanıcı Adı: {username}, Şifre: {password}")
     selenium_tools.send_keys_by_name("email", username)
     time.sleep(5)
     selenium_tools.send_keys_by_name("password", password, return_key=True)
@@ -92,6 +128,7 @@ def collect_mails(company,mails,names):
             time.sleep(1)
             mail=selenium_tools.get_text_by_xpath("//span[contains(text(),'Verified')]/ancestor::div/following-sibling::div//span")
             print("Toplanan Mail ->",mail)
+            logger.info(f"Toplanan Mail -> {mail}")
             mails.append(mail)
             time.sleep(1)
             selenium_tools.click_element_by_xpath("//img[contains(@src, 'copy.svg')]")
@@ -114,6 +151,7 @@ def collect_mails(company,mails,names):
             names.append("")
 
     print("Collected Mails -> ",mails," Collected Names -> ",names)
+    logger.info(f"Collected Mails -> {mails}, Collected Names -> {names}")
     saveToExcel(company, mails, names)
 
 
@@ -124,12 +162,14 @@ def delete_before_searches():
         pass
     
 def start():
-    global selenium_tools
+    global selenium_tools,BOT_STATUS,BOT_DESCRIPTION
     selenium_tools = SeleniumTools(headless=False)
     selenium_tools.open_url("https://app.apollo.io/#/login")  # Açmak istediğiniz web sayfasının URL'sini buraya yazın
     # Burada kullanıcı adı ve şifreyi kullanabilirsiniz
     login()
     print("Giriş yapıldı")
+    logger.info("Giriş yapıldı")
+    BOT_STATUS = "Aktif | Veri çekme işlemi başladı"
     mailsCounter=0
     companyCounter=0
     # Son kaldığı şirketi txt dosyasından oku
@@ -152,45 +192,112 @@ def start():
         with open(base_path+"/files/last_company.txt", "w") as file:
             file.write(company)
             print("Son kaldığı şirket kayıt tamamdır -> ", company)
+            logger.info(f"Son kaldığı şirket kayıt tamamdır -> {company}")
         file.close()
         
         selenium_tools.open_url("https://app.apollo.io/#/companies")
         #companies tıkla
         print("Şirketler tıklanıyor")
+        logger.info("Şirketler tıklanıyor")
         click_companies()
         if companyCounter != 0:
             print("onceki sirket siliniyor")
+            logger.info("onceki sirket siliniyor")
             delete_before_searches()    
         print("Textbox tıklanıyor")
+        logger.info("Textbox tıklanıyor")
         click_textBox()
         print("Şirket aranıyor -> ",company)
+        logger.info(f"Şirket aranıyor -> {company}")
         write_company_name(company)
         print("Şirkete tıklanıyor")
+        logger.info("Şirkete tıklanıyor")
         click_company(company)
         print("People tıklanıyor")
+        logger.info("People tıklanıyor")
         click_people()
         mails=[]
         names=[]
         print("Mail toplanıyor")
+        logger.info("Mail toplanıyor")
         collect_mails(company,mails,names)
         mailsCounter+=len(mails)
         companyCounter+=1
         print("________________________________________________________")
+        logger.info("________________________________________________________")
         
         print("Toplam şirket sayısı -> ",companyCounter," / ",len(companies), "| Toplam mail sayısı -> ",mailsCounter)
+        logger.info(f"Toplam şirket sayısı -> {companyCounter} / {len(companies)} | Toplam mail sayısı -> {mailsCounter}")
+        BOT_DESCRIPTION = ("Şirketlerin %"+str(companyCounter/len(companies)*100)+"'si tamamlandı","Toplanan mail sayısı -> ",mailsCounter)+"\n"
+
         print("Şirketlerin %",companyCounter/len(companies)*100,"'si tamamlandı")
-        print("Tahmini kalan süre -> ",(len(companies)-companyCounter)*10/60," dakika")
+        logger.info(f"Şirketlerin %{companyCounter/len(companies)*100}'si tamamlandı")
+        BOT_DESCRIPTION= "Şirketlerin %"+str(companyCounter/len(companies)*100)+"'si tamamlandı"
         
         print("________________________________________________________")      
         
     print("Toplanan mail sayısı -> ",mailsCounter)
+    logger.info(f"Toplanan mail sayısı -> {mailsCounter}")
     selenium_tools.quit()
     print("Program sonlandı")
+    logger.info("Program sonlandı")
+
+def stop():
+    global BOT_STATUS
+    BOT_STATUS = "Pasif | Veri çekme işlemi durduruldu"
+    print("Veri çekme işlemi durduruldu")
+    logger.info("Veri çekme işlemi durduruldu")
+
+
+def send_mail():
+    global BOT_STATUS
+    BOT_STATUS = "Aktif | Mail Gönderme işlemi başlatıldı"
+    print("Mail Gönderme işlemi başlatılıyor")
+    logger.info("Mail Gönderme işlemi başlatılıyor")
+
+    print("Mail Gönderme işlemi tamamlandı")
+    logger.info("Mail Gönderme işlemi tamamlandı")
+    BOT_STATUS = "Pasif | Mail Gönderme işlemi tamamlandı"
+
+
+def selectExcellPath():
+    global EXCELL_PATH,BOT_STATUS
+    file_path = filedialog.askopenfilename(
+        title="Excel Dosyasını Seç",
+        filetypes=[("Excel Dosyaları", "*.xlsx"), ("Tüm Dosyalar", "*.*")]
+    )
+    if file_path:
+        print(f"Seçilen Excel Dosyası: {file_path}")
+        logger.info(f"Seçilen Excel Dosyası: {file_path}")
+        EXCELL_PATH = file_path
+    else:
+        print("Hiçbir dosya seçilmedi.")
+        logger.info("Hiçbir dosya seçilmedi.")
+        BOT_STATUS = "Pasif | Excell Seçilmedi"
+        EXCELL_PATH = ""
+    BOT_STATUS = "Aktif | Excell Seçildi"
+
+def MailTemplate():
+    global BOT_STATUS, MAIL_TEMPLATE
+    file_path = filedialog.askopenfilename(
+        title="Mail Şablon Dosyasını Seç",
+        filetypes=[("Metin Dosyaları", "*.txt"), ("Tüm Dosyalar", "*.*")]
+    )
+    if file_path:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            MAIL_TEMPLATE = file.read()
+        print("Mail Şablonu Yüklendi")
+        logger.info("Mail Şablonu Yüklendi")
+        BOT_STATUS = "Aktif | Mail Şablonu Yüklendi"
+    else:
+        print("Hiçbir dosya seçilmedi.")
+        logger.info("Hiçbir dosya seçilmedi.")
+        BOT_STATUS = "Pasif | Mail Şablonu Seçilmedi"
 
 # Ana pencereyi oluştur
 root = tk.Tk()
 root.title("SMTP Ayarları")
-root.geometry("400x300")
+root.geometry("900x600")
 
 # Giriş kutularını global olarak tanımla
 entry_smtp = tk.Entry(root)
@@ -263,8 +370,26 @@ show_password_checkbox = tk.Checkbutton(root, text="Şifreleri Göster", variabl
 show_password_checkbox.grid(row=6, column=0, columnspan=2, pady=5)
 
 # Butonlar
-tk.Button(root, text="Ayarları Kaydet", command=save_config).grid(row=7, column=0, columnspan=2, pady=5)
-tk.Button(root, text="Ayarları Yükle", command=load_config).grid(row=8, column=0, columnspan=2, pady=5)
+tk.Button(root, text="Ayarları Kaydet", command=save_config).grid(row=7, column=0, columnspan=1, pady=5)
+tk.Button(root, text="Ayarları Yükle", command=load_config).grid(row=7, column=1, columnspan=1, pady=5)
+tk.Button(root, text="Excell Seç", command=selectExcellPath).grid(row=7, column=2, columnspan=1, pady=5)
+tk.Button(root, text="Mail Şablonu Seç", command=MailTemplate).grid(row=7, column=15, columnspan=1, pady=5)
+
+tk.Label(root, text="Apollo Veri Çek").grid(row=8, column=0, columnspan=1, pady=5)
+
+tk.Button(root, text="Başla", command=start).grid(row=9, column=0, columnspan=1, pady=5)
+tk.Button(root, text="Durdur", command=root.quit).grid(row=9, column=1, columnspan=1, pady=5)
+
+tk.Label(root, text="Mail Gönder").grid(row=10, column=0, columnspan=1, pady=5)
+
+tk.Button(root, text="Başla", command=start).grid(row=11, column=0, columnspan=1, pady=5)
+tk.Button(root, text="Durdur", command=root.quit).grid(row=11, column=1, columnspan=1, pady=5)
+
+tk.Label(root, text="Bot Durumu: ").grid(row=0, column=2, columnspan=10, pady=5)
+tk.Label(root, text=BOT_STATUS).grid(row=0, column=13, columnspan=10, pady=5)
+
+tk.Label(root, text="Son Durum: ").grid(row=1, column=2, columnspan=10, pady=5)
+tk.Label(root, text=BOT_DESCRIPTION).grid(row=1, column=13, columnspan=10, pady=5)
 
 # Pencereyi çalıştır
 root.mainloop()
