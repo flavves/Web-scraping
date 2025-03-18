@@ -12,7 +12,8 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 from tkinter import filedialog
 
-
+import threading
+stop_event = threading.Event()
 # Log dosyasının günlük olarak sıfırlanması
 log_handler = TimedRotatingFileHandler(
     filename='scraping.log',  # Log dosya adı
@@ -188,6 +189,10 @@ def delete_before_searches():
     
 def start():
     global selenium_tools,BOT_STATUS,BOT_DESCRIPTION,MAIL_TEMPLATE,EXCELL_PATH
+
+    stop_event.clear()
+
+
     selenium_tools = SeleniumTools(headless=False)
     selenium_tools.open_url("https://app.apollo.io/#/login")  # Açmak istediğiniz web sayfasının URL'sini buraya yazın
     # Burada kullanıcı adı ve şifreyi kullanabilirsiniz
@@ -215,6 +220,11 @@ def start():
             pass
     counter = 0
     for company in companies[start_index:]:
+        if stop_event.is_set():
+            BOT_STATUS = "Pasif | Bot kullanıcı tarafından durduruldu"
+            BOT_DESCRIPTION = "Bot kullanıcı tarafından durduruldu"
+            update_status()
+            break  # Döngüden çık
         # Son kaldığı şirketi txt dosyasına kaydet
         with open(base_path+"/files/last_company.txt", "w") as file:
             file.write(company)
@@ -270,12 +280,22 @@ def start():
     print("Program sonlandı")
     logger.info("Program sonlandı")
 
+def start_thread():
+    print("Veri çekme işlemi başlatılıyor")
+    logging.info("Veri çekme işlemi başlatılıyor")
+    thread = threading.Thread(target=start, daemon=True)
+    thread.start()
+    print("Veri çekme işlemi başlatıldı")
+    logging.info("Veri çekme işlemi başlatıldı")
+
+
 def stop():
     global BOT_STATUS
     BOT_STATUS = "Pasif | Veri çekme işlemi durduruldu"
     update_status()
     print("Veri çekme işlemi durduruldu")
     logger.info("Veri çekme işlemi durduruldu")
+    stop_event.set()
 
 
 def send_mail():
@@ -298,8 +318,16 @@ def update_status():
     logger.info(f"Bot Durumu: {BOT_STATUS}")
     logger.info(f"Son Durum: {BOT_DESCRIPTION}")
 
-    bot_status_var.set(BOT_STATUS)
-    bot_description_var.set(BOT_DESCRIPTION)
+    try:
+        bot_status_var.set(BOT_STATUS)
+        bot_description_var.set(BOT_DESCRIPTION)
+    except:
+        try:
+            root.after(0, lambda: bot_status_var.set(BOT_STATUS))
+            root.after(0, lambda: bot_description_var.set(BOT_DESCRIPTION))
+        except:
+            pass
+
 
 
 def selectExcellPath():
@@ -429,8 +457,8 @@ tk.Button(root, text="Mail Şablonu Seç", command=MailTemplate).grid(row=7, col
 
 tk.Label(root, text="Apollo Veri Çek").grid(row=8, column=0, columnspan=1, pady=5)
 
-tk.Button(root, text="Başla", command=start).grid(row=9, column=0, columnspan=1, pady=5)
-tk.Button(root, text="Durdur", command=root.quit).grid(row=9, column=1, columnspan=1, pady=5)
+tk.Button(root, text="Başla", command=start_thread).grid(row=9, column=0, columnspan=1, pady=5)
+tk.Button(root, text="Durdur", command=stop).grid(row=9, column=1, columnspan=1, pady=5)
 
 tk.Label(root, text="Mail Gönder").grid(row=10, column=0, columnspan=1, pady=5)
 
