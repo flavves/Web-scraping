@@ -38,6 +38,7 @@ BOT_STATUS = "Pasif"
 BOT_DESCRIPTION = "Veri çekme işlemi başlatılmadı"
 EXCELL_PATH = ""
 MAIL_TEMPLATE = ""
+companies = []
 
 
 # Ana pencereyi oluştur
@@ -78,14 +79,16 @@ with open(config_path, 'r') as config_file:
 username = config["username"]
 password = config["password"]
 
-csvReader = FileReader(base_path+"/files/Companies.csv")
-data = csvReader.read_file()
-companies = csvReader.get_companies()
-#companies= companies[0:10]
-#print(companies)
-logger.info(f"Şirketler -> {companies}")
+
 
 def login():
+    with open(config_path, 'r') as config_file:
+        config = json.load(config_file)
+
+    username = config["username"]
+    password = config["password"]
+
+
     print(f"Kullanıcı Adı: {username}, Şifre: {password}")
     logger.info(f"Kullanıcı Adı: {username}, Şifre: {password}")
     selenium_tools.send_keys_by_name("email", username)
@@ -126,8 +129,8 @@ def click_company(company_name):
 def saveToExcel(company, mails, names):
         global selenium_tools,BOT_STATUS,BOT_DESCRIPTION,MAIL_TEMPLATE,EXCELL_PATH
 
-        #file_path = base_path+"/files/Emails.xlsx"
-        file_path = EXCELL_PATH
+        file_path = base_path+"/files/Emails.xlsx"
+        
         if(len(mails)==0):
             return -1
         # Check if the file exists
@@ -180,6 +183,13 @@ def collect_mails(company,mails,names):
 
     print("Collected Mails -> ",mails," Collected Names -> ",names)
     logger.info(f"Collected Mails -> {mails}, Collected Names -> {names}")
+    if(len(names)==0):
+            print("Mail toplanamadı")
+            logger.info("Mail toplanamadı")
+            BOT_STATUS = "Pasif | Mail toplanamadı"
+            BOT_DESCRIPTION = "Mail toplanamadı"
+            update_status()
+            return -1
     res=saveToExcel(company, mails, names)
     try:
         if res==-1:
@@ -210,6 +220,12 @@ def start():
 
     stop_event.clear()
 
+    csvReader = FileReader(EXCELL_PATH)
+    data = csvReader.read_file()
+    companies = csvReader.get_companies()
+    #companies= companies[0:10]
+    #print(companies)
+    logger.info(f"Şirketler -> {companies}")
 
     selenium_tools = SeleniumTools(headless=False)
     selenium_tools.open_url("https://app.apollo.io/#/login")  # Açmak istediğiniz web sayfasının URL'sini buraya yazın
@@ -290,11 +306,11 @@ def start():
         
         print("Toplam şirket sayısı -> ",companyCounter," / ",len(companies), "| Toplam mail sayısı -> ",mailsCounter)
         logger.info(f"Toplam şirket sayısı -> {companyCounter} / {len(companies)} | Toplam mail sayısı -> {mailsCounter}")
-        BOT_DESCRIPTION = ("Şirketlerin %"+str(companyCounter/len(companies)*100)+"'si tamamlandı","Toplanan mail sayısı -> ",mailsCounter)+"\n"
+        BOT_DESCRIPTION = f"Şirketlerin %{companyCounter/len(companies)*100:.2f}'si tamamlandı\nToplanan mail sayısı -> {mailsCounter}"
 
         print("Şirketlerin %",companyCounter/len(companies)*100,"'si tamamlandı")
         logger.info(f"Şirketlerin %{companyCounter/len(companies)*100}'si tamamlandı")
-        BOT_DESCRIPTION= "Şirketlerin %"+str(companyCounter/len(companies)*100)+"'si tamamlandı"
+        BOT_DESCRIPTION = f"Şirketlerin %{companyCounter / len(companies) * 100:.2f}'si tamamlandı"
         update_status()
         
         print("________________________________________________________")      
