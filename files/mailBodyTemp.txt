@@ -1,0 +1,7 @@
+<html>
+    <body>
+        <p>Sayın {company} Yetkilisi {name},</p>
+        <p>Size özel teklifimizi ekte bulabilirsiniz.</p>
+        {images}
+    </body>
+</html>
