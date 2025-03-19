@@ -1,5 +1,6 @@
 from SeleniumTools import SeleniumTools
 from FileReader import FileReader
+from SendMail import EmailSender
 from dotenv import load_dotenv
 import os
 import time
@@ -11,7 +12,7 @@ from tkinter import messagebox
 import logging
 from logging.handlers import TimedRotatingFileHandler
 from tkinter import filedialog
-
+import random
 import threading
 stop_event = threading.Event()
 # Log dosyasının günlük olarak sıfırlanması
@@ -32,19 +33,23 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 logger.addHandler(log_handler)
 # DETAYLAR
-global selenium_tools,BOT_STATUS,BOT_DESCRIPTION,MAIL_TEMPLATE,EXCELL_PATH
+global selenium_tools,BOT_STATUS,BOT_DESCRIPTION,MAIL_TEMPLATE,EXCELL_PATH,PDF_PATHS,MAIL_TEMPLATE_SUBJECT,MAIL_TEMPLATE_BODY,JPG_PATHS
 
 BOT_STATUS = "Pasif"
 BOT_DESCRIPTION = "Veri çekme işlemi başlatılmadı"
 EXCELL_PATH = ""
 MAIL_TEMPLATE = ""
+MAIL_TEMPLATE_SUBJECT = ""
+MAIL_TEMPLATE_BODY = ""
+PDF_PATHS = []
+JPG_PATHS = []
 companies = []
 
 
 # Ana pencereyi oluştur
 root = tk.Tk()
 root.title("SMTP Ayarları")
-root.geometry("900x600")
+root.geometry("1080x600")
 # DETAYLAR
 bot_status_var = tk.StringVar()
 bot_description_var = tk.StringVar()
@@ -127,7 +132,7 @@ def click_company(company_name):
 
 
 def saveToExcel(company, mails, names):
-        global selenium_tools,BOT_STATUS,BOT_DESCRIPTION,MAIL_TEMPLATE,EXCELL_PATH
+        global selenium_tools,BOT_STATUS,BOT_DESCRIPTION,MAIL_TEMPLATE_SUBJECT,EXCELL_PATH,MAIL_TEMPLATE_BODY
 
         file_path = base_path+"/files/Emails.xlsx"
         
@@ -216,7 +221,7 @@ def delete_before_searches():
         pass
     
 def start():
-    global selenium_tools,BOT_STATUS,BOT_DESCRIPTION,MAIL_TEMPLATE,EXCELL_PATH
+    global selenium_tools,BOT_STATUS,BOT_DESCRIPTION,MAIL_TEMPLATE,EXCELL_PATH,MAIL_TEMPLATE_SUBJECT,MAIL_TEMPLATE_BODY
 
     stop_event.clear()
 
@@ -310,10 +315,14 @@ def start():
 
         print("Şirketlerin %",companyCounter/len(companies)*100,"'si tamamlandı")
         logger.info(f"Şirketlerin %{companyCounter/len(companies)*100}'si tamamlandı")
-        BOT_DESCRIPTION = f"Şirketlerin %{companyCounter / len(companies) * 100:.2f}'si tamamlandı"
+        BOT_DESCRIPTION += f"Şirketlerin %{companyCounter / len(companies) * 100:.2f}'si tamamlandı"
         update_status()
         
         print("________________________________________________________")      
+
+        delay = random.randint(180, 300)
+        logging.info(f"Bekleniyor: {delay} saniye...")
+        time.sleep(delay)
         
     print("Toplanan mail sayısı -> ",mailsCounter)
     logger.info(f"Toplanan mail sayısı -> {mailsCounter}")
@@ -395,15 +404,15 @@ def selectExcellPath():
         update_status()
     update_status()
 
-def MailTemplate():
-    global BOT_STATUS, MAIL_TEMPLATE,BOT_DESCRIPTION
+def MailTemplateSubject():
+    global BOT_STATUS, MAIL_TEMPLATE,BOT_DESCRIPTION,MAIL_TEMPLATE_SUBJECT,MAIL_TEMPLATE_BODY
     file_path = filedialog.askopenfilename(
-        title="Mail Şablon Dosyasını Seç",
+        title="Mail Başlık Dosyasını Seç",
         filetypes=[("Metin Dosyaları", "*.txt"), ("Tüm Dosyalar", "*.*")]
     )
     if file_path:
         with open(file_path, 'r', encoding='utf-8') as file:
-            MAIL_TEMPLATE = file.read()
+            MAIL_TEMPLATE_SUBJECT = file.read()
         print("Mail Şablonu Yüklendi")
         logger.info("Mail Şablonu Yüklendi")
         BOT_STATUS = "Aktif | Mail Şablonu Yüklendi"
@@ -415,6 +424,109 @@ def MailTemplate():
         BOT_STATUS = "Pasif | Mail Şablonu Seçilmedi"
         BOT_DESCRIPTION = "Mail Şablonu Seçilmedi"
         update_status()
+
+        
+
+def MailTemplateBody():
+    global BOT_STATUS, MAIL_TEMPLATE,BOT_DESCRIPTION
+    file_path = filedialog.askopenfilename(
+        title="Mail Şablon Dosyasını Seç",
+        filetypes=[("Metin Dosyaları", "*.txt"), ("Tüm Dosyalar", "*.*")]
+    )
+    if file_path:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            MAIL_TEMPLATE_BODY = file.read()
+        print("Mail Şablonu Yüklendi")
+        logger.info("Mail Şablonu Yüklendi")
+        BOT_STATUS = "Aktif | Mail Şablonu Yüklendi"
+        BOT_DESCRIPTION = "Mail Şablonu Yüklendi"
+        update_status()
+    else:
+        print("Hiçbir dosya seçilmedi.")
+        logger.info("Hiçbir dosya seçilmedi.")
+        BOT_STATUS = "Pasif | Mail Şablonu Seçilmedi"
+        BOT_DESCRIPTION = "Mail Şablonu Seçilmedi"
+        update_status()
+
+def selectJPGPaths():
+    global BOT_STATUS, MAIL_TEMPLATE,BOT_DESCRIPTION,JPG_PATHS
+    file_path = filedialog.askopenfilename(
+        title="Görselleri seç",
+        filetypes=[("Metin Dosyaları", "*.txt"), ("Tüm Dosyalar", "*.*")]
+    )
+    if file_path:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            JPG_PATHS = file.read()
+        print("Mail Şablonu Yüklendi")
+        logger.info("Mail Şablonu Yüklendi")
+        BOT_STATUS = "Aktif | Mail Gorseller Yüklendi"
+        BOT_DESCRIPTION = "Mail Gorseller Yüklendi"
+        update_status()
+    else:
+        print("Hiçbir dosya seçilmedi.")
+        logger.info("Hiçbir dosya seçilmedi.")
+        BOT_STATUS = "Pasif | Mail Gorseller Seçilmedi"
+        BOT_DESCRIPTION = "Mail Gorseller Seçilmedi"
+        update_status()
+
+def selectPDFPaths():
+    global PDF_PATHS,BOT_STATUS,BOT_DESCRIPTION
+    file_paths = filedialog.askopenfilenames(
+        title="PDF Dosyalarını Seç",
+        filetypes=[("PDF Dosyaları", "*.pdf"), ("Tüm Dosyalar", "*.*")]
+    )
+    if file_paths:
+        print("Seçilen PDF Dosyaları:")
+        for path in file_paths:
+            print(path)
+        PDF_PATHS = file_paths
+        print("PDF Dosyaları Seçildi")
+        logger.info("PDF Dosyaları Seçildi")
+        BOT_STATUS = "Aktif | PDF Dosyaları Seçildi"
+        BOT_DESCRIPTION = "PDF Dosyaları Seçildi"
+        update_status()
+    else:
+        print("Hiçbir dosya seçilmedi.")
+        PDF_PATHS = []
+        logger.info("Hiçbir dosya seçilmedi.")
+        BOT_STATUS = "Pasif | PDF Dosyaları Seçilmedi"
+        BOT_DESCRIPTION = "PDF Dosyaları Seçilmedi"
+        update_status()
+
+def send_mail():
+    global PDF_PATHS,JPG_PATHS,MAIL_TEMPLATE_SUBJECT,MAIL_TEMPLATE_BODY,EXCELL_PATH,BOT_DESCRIPTION,BOT_STATUS
+    with open(base_path+'/config.json', 'r') as config_file:
+        config = json.load(config_file)
+
+    smtp_server = config["smtp_server"]
+    smtp_port = config["smtp_port"]
+    email_address = config["email_address"]
+    email_password = config["email_password"]
+
+    email_sender = EmailSender(smtp_server, smtp_port, email_address, email_password)
+
+    excel_path = base_path+"/files/Emails.xlsx"
+    subject_template = MAIL_TEMPLATE_SUBJECT
+
+    body_template = MAIL_TEMPLATE_BODY
+
+    attachments = PDF_PATHS
+
+    image_paths = JPG_PATHS
+
+    image_html = ''.join([f'<img src="cid:{os.path.basename(image)}">' for image in image_paths])
+    body_template = body_template.replace("{images}", image_html)
+    logger.info("Mail Gönderme işlemi başlatıldı")
+    BOT_STATUS = "Aktif | Mail Gönderme işlemi başlatıldı"
+    BOT_DESCRIPTION = "Mail Gönderme işlemi başlatıldı"
+    update_status()
+
+    email_sender.send_bulk_emails(excel_path, subject_template, body_template, attachments, image_paths)
+    print("Mail Gönderme işlemi tamamlandı")
+    logger.info("Mail Gönderme işlemi tamamlandı")
+    BOT_STATUS = "Pasif | Mail Gönderme işlemi tamamlandı"
+    BOT_DESCRIPTION = "Mail Gönderme işlemi tamamlandı"
+    update_status()
 
 
 
@@ -494,7 +606,10 @@ show_password_checkbox.grid(row=6, column=0, columnspan=2, pady=5)
 tk.Button(root, text="Ayarları Kaydet", command=save_config).grid(row=7, column=0, columnspan=1, pady=5)
 tk.Button(root, text="Ayarları Yükle", command=load_config).grid(row=7, column=1, columnspan=1, pady=5)
 tk.Button(root, text="Excell Seç", command=selectExcellPath).grid(row=7, column=2, columnspan=1, pady=5)
-tk.Button(root, text="Mail Şablonu Seç", command=MailTemplate).grid(row=7, column=15, columnspan=1, pady=5)
+tk.Button(root, text="Mail Konu Şablonu Seç", command=MailTemplateSubject).grid(row=7, column=15, columnspan=1, pady=5)
+tk.Button(root, text="Mail Mesaj Şablonu Seç", command=MailTemplateBody).grid(row=7, column=16, columnspan=1, pady=5)
+tk.Button(root, text="PDF Dosyalarını Seç", command=selectPDFPaths).grid(row=7, column=17, columnspan=1, pady=5)
+tk.Button(root, text="JPG Dosyalarını Seç", command=selectJPGPaths).grid(row=7, column=18, columnspan=1, pady=5)
 
 tk.Label(root, text="Apollo Veri Çek").grid(row=8, column=0, columnspan=1, pady=5)
 
