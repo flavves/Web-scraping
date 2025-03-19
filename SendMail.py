@@ -102,10 +102,13 @@ class EmailSender:
         for index, row in data.iterrows():
             to_email = row['Mail']
             company_name = row['Şirket']
-            logging.info(f"Gönderilecek e-posta: {to_email}, Şirket: {company_name}")
+            name=row['Çalışan Adı']
+            logging.info(f"Gönderilecek e-posta: {to_email}, Şirket: {company_name}, Çalışan Adı: {name}")
 
             subject = subject_template.replace("{company}", company_name)
+            subject = subject_template.replace("{name}", name)
             body = body_template.replace("{company}", company_name)
+            body = body_template.replace("{name}", name)
             logging.debug(f"Konu: {subject}, Gövde: {body}, Ekler: {attachments}")
 
             self.send_email(to_email, subject, body, attachments, image_paths)
