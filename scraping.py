@@ -63,7 +63,7 @@ companies = []
 
 # Ana pencereyi oluştur
 root = tk.Tk()
-root.title("SMTP Ayarları")
+root.title("Apollo Otomasyon")
 root.geometry("1080x600")
 # DETAYLAR
 bot_status_var = tk.StringVar()
@@ -558,22 +558,38 @@ def send_mail():
             logging.error(f"E-posta gönderme hatası: {e}")
 
     def send_bulk_emails(excel_file, subject_template, body_template, attachments=[], image_paths=[]):
-        global BOT_STATUS,BOT_DESCRIPTION
+        global BOT_STATUS, BOT_DESCRIPTION
         stop_event_mail.clear()
         logging.info("Toplu mail gönderme başladı.")
         data = read_excel(excel_file)
         if data is None:
             return
 
-        for index, row in data.iterrows():
+        # Son gönderilen maili txt dosyasından oku
+        last_email = None
+        try:
+            with open(base_path + "/files/last_mailsender.txt", "r") as file:
+                last_email = file.read().strip()
+        except FileNotFoundError:
+            pass
+
+        start_index = 0
+        if last_email:
+            try:
+                start_index = data[data['Mail'] == last_email].index[0] + 1
+            except IndexError:
+                logging.warning("Son gönderilen mail bulunamadı, baştan başlanacak.")
+
+        for index, row in data.iloc[start_index:].iterrows():
             if stop_event_mail.is_set():
                 BOT_STATUS = "Pasif | Bot kullanıcı tarafından durduruldu"
                 BOT_DESCRIPTION = "Bot kullanıcı tarafından durduruldu"
                 update_status()
                 break  # Döngüden çık
+
             to_email = row['Mail']
             company_name = row['Şirket']
-            name=row['Çalışan Adı']
+            name = row['Çalışan Adı']
             logging.info(f"Gönderilecek e-posta: {to_email}, Şirket: {company_name}, Çalışan Adı: {name}")
 
             subject = subject_template.replace("{company}", company_name)
@@ -582,18 +598,21 @@ def send_mail():
             body = body_template.replace("{company}", company_name)
             body = body.replace("{name}", name)
             logging.info(f"Konu: {subject}, Gövde: {body}, Ekler: {attachments}")
-            #print(f"Konu: {subject}, Gövde: {body}, Ekler: {attachments}")
-            #print("company_name: ",company_name)
-            #print("name: ",name)
 
             send_email(to_email, subject, body, attachments, image_paths)
             logging.info("Mail gönderildi.")
+
+            # Son gönderilen maili txt dosyasına kaydet
+            with open(base_path + "/files/last_mailsender.txt", "w") as file:
+                file.write(to_email)
+                logging.info(f"Son gönderilen mail kaydedildi: {to_email}")
 
             delay = random.randint(180, 520)
             logging.info(f"Bekleniyor: {delay} saniye...")
             print(f"Bekleniyor: {delay} saniye...")
             time.sleep(delay)
             print("Mail Gönderildi")
+
         logging.info("Toplu mail gönderme tamamlandı.")
 
 
