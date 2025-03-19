@@ -1,6 +1,5 @@
 from SeleniumTools import SeleniumTools
 from FileReader import FileReader
-from SendMail import EmailSender
 from dotenv import load_dotenv
 import os
 import time
@@ -14,7 +13,23 @@ from logging.handlers import TimedRotatingFileHandler
 from tkinter import filedialog
 import random
 import threading
+import smtplib
+import time
+import random
+import pandas as pd
+import os
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email.mime.image import MIMEImage
+from email import encoders
+import logging
+from logging.handlers import TimedRotatingFileHandler
+from dotenv import load_dotenv
+import json
+import threading
 stop_event = threading.Event()
+stop_event_mail = threading.Event()
 # Log dosyasının günlük olarak sıfırlanması
 log_handler = TimedRotatingFileHandler(
     filename='scraping.log',  # Log dosya adı
@@ -348,16 +363,6 @@ def stop():
     stop_event.set()
 
 
-def send_mail():
-    global BOT_STATUS
-    BOT_STATUS = "Aktif | Mail Gönderme işlemi başlatıldı"
-    update_status()
-    print("Mail Gönderme işlemi başlatılıyor")
-    logger.info("Mail Gönderme işlemi başlatılıyor")
-
-    print("Mail Gönderme işlemi tamamlandı")
-    logger.info("Mail Gönderme işlemi tamamlandı")
-    BOT_STATUS = "Pasif | Mail Gönderme işlemi tamamlandı"
 
 def update_status():
     global BOT_STATUS, BOT_DESCRIPTION
@@ -506,7 +511,94 @@ def send_mail():
     email_address = config["email_address"]
     email_password = config["email_password"]
 
-    email_sender = EmailSender(smtp_server, smtp_port, email_address, email_password)
+    #############################################3
+    def read_excel(file_path):
+        try:
+            return pd.read_excel(file_path)
+        except FileNotFoundError:
+            logging.error(f"Dosya bulunamadı: {file_path}")
+            return None
+        except Exception as e:
+            logging.error(f"Excel okuma hatası: {e}")
+            return None
+
+    def send_email(to_email, subject, body, attachments=[], image_paths=[]):
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = email_address
+            msg['To'] = to_email
+            msg['Subject'] = subject
+
+            msg.attach(MIMEText(body, 'html'))
+
+            for image_path in image_paths:
+                with open(image_path, 'rb') as img:
+                    mime_image = MIMEImage(img.read())
+                    mime_image.add_header('Content-ID', f'<{os.path.basename(image_path)}>')
+                    msg.attach(mime_image)
+
+            for attachment in attachments:
+                part = MIMEBase('application', 'octet-stream')
+                with open(attachment, 'rb') as file:
+                    part.set_payload(file.read())
+                encoders.encode_base64(part)
+                part.add_header('Content-Disposition', f'attachment; filename={os.path.basename(attachment)}')
+                msg.attach(part)
+
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            server.login(email_address, email_password)
+            server.sendmail(email_address, to_email, msg.as_string())
+            server.quit()
+
+            logging.info(f"E-posta gönderildi: {to_email}")
+        except smtplib.SMTPAuthenticationError:
+            logging.error("SMTP kimlik doğrulama hatası. Şifrenizi kontrol edin.")
+        except Exception as e:
+            logging.error(f"E-posta gönderme hatası: {e}")
+
+    def send_bulk_emails(excel_file, subject_template, body_template, attachments=[], image_paths=[]):
+        global BOT_STATUS,BOT_DESCRIPTION
+        stop_event_mail.clear()
+        logging.info("Toplu mail gönderme başladı.")
+        data = read_excel(excel_file)
+        if data is None:
+            return
+
+        for index, row in data.iterrows():
+            if stop_event_mail.is_set():
+                BOT_STATUS = "Pasif | Bot kullanıcı tarafından durduruldu"
+                BOT_DESCRIPTION = "Bot kullanıcı tarafından durduruldu"
+                update_status()
+                break  # Döngüden çık
+            to_email = row['Mail']
+            company_name = row['Şirket']
+            name=row['Çalışan Adı']
+            logging.info(f"Gönderilecek e-posta: {to_email}, Şirket: {company_name}, Çalışan Adı: {name}")
+
+            subject = subject_template.replace("{company}", company_name)
+            subject = subject.replace("{name}", name)
+
+            body = body_template.replace("{company}", company_name)
+            body = body.replace("{name}", name)
+            logging.info(f"Konu: {subject}, Gövde: {body}, Ekler: {attachments}")
+            #print(f"Konu: {subject}, Gövde: {body}, Ekler: {attachments}")
+            #print("company_name: ",company_name)
+            #print("name: ",name)
+
+            #send_email(to_email, subject, body, attachments, image_paths)
+            logging.info("Mail gönderildi.")
+
+            delay = random.randint(180, 520)
+            logging.info(f"Bekleniyor: {delay} saniye...")
+            print(f"Bekleniyor: {delay} saniye...")
+            time.sleep(delay)
+            print("Mail Gönderildi")
+        logging.info("Toplu mail gönderme tamamlandı.")
+
+
+    ##############################################
+
 
     excel_path = base_path+"/files/Emails.xlsx"
     subject_template = MAIL_TEMPLATE_SUBJECT
@@ -524,13 +616,28 @@ def send_mail():
     BOT_DESCRIPTION = "Mail Gönderme işlemi başlatıldı"
     update_status()
 
-    email_sender.send_bulk_emails(excel_path, subject_template, body_template, attachments, image_paths)
+    send_bulk_emails(excel_path, subject_template, body_template, attachments, image_paths)
     print("Mail Gönderme işlemi tamamlandı")
     logger.info("Mail Gönderme işlemi tamamlandı")
     BOT_STATUS = "Pasif | Mail Gönderme işlemi tamamlandı"
     BOT_DESCRIPTION = "Mail Gönderme işlemi tamamlandı"
     update_status()
 
+def mail_stop():
+    global BOT_STATUS
+    BOT_STATUS = "Pasif | Mail GÖnderme işlemi durduruldu"
+    update_status()
+    print(" Mail GÖnderme işlemi durduruldu")
+    logger.info(" Mail GÖnderme işlemi durduruldu")
+    stop_event_mail.set()
+
+def send_mail_thread():
+    print("Mail Gönderme başlatılıyor")
+    logging.info("Mail Gönderme başlatılıyor")
+    thread = threading.Thread(target=send_mail, daemon=True)
+    thread.start()
+    print("Mail Gönderme başlatıldı")
+    logging.info("Mail Gönderme başlatıldı")
 
 
 # Giriş kutularını global olarak tanımla
@@ -621,8 +728,8 @@ tk.Button(root, text="Durdur", command=stop).grid(row=9, column=1, columnspan=1,
 
 tk.Label(root, text="Mail Gönder").grid(row=10, column=0, columnspan=1, pady=5)
 
-tk.Button(root, text="Başla", command=send_mail).grid(row=11, column=0, columnspan=1, pady=5)
-tk.Button(root, text="Durdur", command=root.quit).grid(row=11, column=1, columnspan=1, pady=5)
+tk.Button(root, text="Başla", command=send_mail_thread).grid(row=11, column=0, columnspan=1, pady=5)
+tk.Button(root, text="Durdur", command=mail_stop).grid(row=11, column=1, columnspan=1, pady=5)
 
 tk.Label(root, text="Bot Durumu: ").grid(row=0, column=2, columnspan=10, pady=5)
 tk.Label(root, textvariable=bot_status_var).grid(row=0, column=13, columnspan=10, pady=5)
