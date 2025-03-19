@@ -586,7 +586,7 @@ def send_mail():
             #print("company_name: ",company_name)
             #print("name: ",name)
 
-            #send_email(to_email, subject, body, attachments, image_paths)
+            send_email(to_email, subject, body, attachments, image_paths)
             logging.info("Mail gönderildi.")
 
             delay = random.randint(180, 520)
