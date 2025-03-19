@@ -106,10 +106,14 @@ class EmailSender:
             logging.info(f"Gönderilecek e-posta: {to_email}, Şirket: {company_name}, Çalışan Adı: {name}")
 
             subject = subject_template.replace("{company}", company_name)
-            subject = subject_template.replace("{name}", name)
+            subject = subject.replace("{name}", name)
+
             body = body_template.replace("{company}", company_name)
-            body = body_template.replace("{name}", name)
-            logging.debug(f"Konu: {subject}, Gövde: {body}, Ekler: {attachments}")
+            body = body.replace("{name}", name)
+            logging.info(f"Konu: {subject}, Gövde: {body}, Ekler: {attachments}")
+            #print(f"Konu: {subject}, Gövde: {body}, Ekler: {attachments}")
+            #print("company_name: ",company_name)
+            #print("name: ",name)
 
             self.send_email(to_email, subject, body, attachments, image_paths)
             logging.info("Mail gönderildi.")
@@ -117,7 +121,7 @@ class EmailSender:
             delay = random.randint(180, 300)
             logging.info(f"Bekleniyor: {delay} saniye...")
             time.sleep(delay)
-
+""""
 # Kullanım Örneği
 # Load configuration from config.json
 with open(base_path+'/config.json', 'r') as config_file:
@@ -133,7 +137,7 @@ email_sender = EmailSender(smtp_server, smtp_port, email_address, email_password
 excel_path = base_path+"/files/Emails.xlsx"
 subject_template = "Merhaba {company}, Özel Teklifimiz Var!"
 
-body_template = """
+body_template = 
 <html>
     <body>
         <p>Sayın {company} Yetkilisi,</p>
@@ -141,7 +145,7 @@ body_template = """
         {images}
     </body>
 </html>
-"""
+
 
 attachments = [base_path+"/files/exPdf/py copy.pdf",
                base_path+"/files/exPdf/py.pdf"]
@@ -153,3 +157,4 @@ image_html = ''.join([f'<img src="cid:{os.path.basename(image)}">' for image in 
 body_template = body_template.replace("{images}", image_html)
 
 email_sender.send_bulk_emails(excel_path, subject_template, body_template, attachments, image_paths)
+"""
