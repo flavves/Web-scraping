@@ -428,7 +428,7 @@ def MailTemplateSubject():
         
 
 def MailTemplateBody():
-    global BOT_STATUS, MAIL_TEMPLATE,BOT_DESCRIPTION
+    global BOT_STATUS, MAIL_TEMPLATE,BOT_DESCRIPTION,MAIL_TEMPLATE_BODY
     file_path = filedialog.askopenfilename(
         title="Mail Şablon Dosyasını Seç",
         filetypes=[("Metin Dosyaları", "*.txt"), ("Tüm Dosyalar", "*.*")]
@@ -450,23 +450,26 @@ def MailTemplateBody():
 
 def selectJPGPaths():
     global BOT_STATUS, MAIL_TEMPLATE,BOT_DESCRIPTION,JPG_PATHS
-    file_path = filedialog.askopenfilename(
-        title="Görselleri seç",
-        filetypes=[("Metin Dosyaları", "*.txt"), ("Tüm Dosyalar", "*.*")]
+    file_paths = filedialog.askopenfilenames(
+        title="JPG Dosyalarını Seç",
+        filetypes=[("JPG Dosyaları", "*.jpg"), ("Tüm Dosyalar", "*.*")]
     )
-    if file_path:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            JPG_PATHS = file.read()
-        print("Mail Şablonu Yüklendi")
-        logger.info("Mail Şablonu Yüklendi")
-        BOT_STATUS = "Aktif | Mail Gorseller Yüklendi"
-        BOT_DESCRIPTION = "Mail Gorseller Yüklendi"
+    if file_paths:
+        print("Seçilen JPG Dosyaları:")
+        for path in file_paths:
+            print(path)
+        JPG_PATHS = file_paths
+        print("JPG Dosyaları Seçildi")
+        logger.info("JPG Dosyaları Seçildi")
+        BOT_STATUS = "Aktif | JPG Dosyaları Seçildi"
+        BOT_DESCRIPTION = "JPG Dosyaları Seçildi"
         update_status()
     else:
         print("Hiçbir dosya seçilmedi.")
+        JPG_PATHS = []
         logger.info("Hiçbir dosya seçilmedi.")
-        BOT_STATUS = "Pasif | Mail Gorseller Seçilmedi"
-        BOT_DESCRIPTION = "Mail Gorseller Seçilmedi"
+        BOT_STATUS = "Pasif | JPG Dosyaları Seçilmedi"
+        BOT_DESCRIPTION = "JPG Dosyaları Seçilmedi"
         update_status()
 
 def selectPDFPaths():
@@ -618,7 +621,7 @@ tk.Button(root, text="Durdur", command=stop).grid(row=9, column=1, columnspan=1,
 
 tk.Label(root, text="Mail Gönder").grid(row=10, column=0, columnspan=1, pady=5)
 
-tk.Button(root, text="Başla", command=start).grid(row=11, column=0, columnspan=1, pady=5)
+tk.Button(root, text="Başla", command=send_mail).grid(row=11, column=0, columnspan=1, pady=5)
 tk.Button(root, text="Durdur", command=root.quit).grid(row=11, column=1, columnspan=1, pady=5)
 
 tk.Label(root, text="Bot Durumu: ").grid(row=0, column=2, columnspan=10, pady=5)
